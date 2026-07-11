@@ -286,14 +286,14 @@ compatible across the Java / Node / Python SDKs — do not modify it):
 on POSIX systems. Cache writes are best-effort: a failure is logged to stderr and swallowed — it
 never breaks the application.
 
-### The server-driven gate: `offlineCacheAllowed`
+### The `offlineCacheAllowed` compatibility flag
 
-The offline cache is a **paid-tier feature**. On each full-config response the server may include an
-`offlineCacheAllowed` flag:
+The offline cache is available on **every tier** — current platform versions send
+`offlineCacheAllowed: true` on all tiers, including Free. The flag remains in the response for
+compatibility with older platform builds:
 
-- `false` → the SDK **skips the cache write** even if you enabled it locally (a FREE-tier server
-  turns the cache off client-side).
-- `true` or **absent/`null`** (older server) → the SDK honors its own configured setting.
+- `false` (older platform build) → the SDK **skips the cache write** even if you enabled it locally.
+- `true` or **absent/`null`** → the SDK honors its own configured setting.
 
 You still control whether the cache is *enabled* at all via the builder / Spring property; the flag
 only ever *suppresses* writing, it never forces it on.
@@ -348,7 +348,7 @@ try {
 | `HTTP 421` | `baseUrl` host isn't the platform's licensed public host. | Point `baseUrl` at the exact `K2_PUBLIC_HOST` the platform is licensed for. |
 | `offline snapshot … failed integrity check` (stderr) | Snapshot written under a different token, or the file was tampered. | Expected after a token rotation — it self-heals on the next successful fetch. |
 | `offline snapshot … is past its TTL` (stderr) | Snapshot older than `k2.offline-cache.ttl-seconds`. | Expected; raise the TTL if you need a longer offline window. |
-| Offline cache never writes | Server sent `offlineCacheAllowed=false` (FREE tier), or the cache is disabled. | The offline cache is a paid-tier feature; upgrade the platform tier or enable it locally on a paid server. |
+| Offline cache never writes | The cache is disabled locally, or an older platform build sent `offlineCacheAllowed=false`. | Enable the cache locally; every tier allows it on current platform versions — update the platform if the server still sends `false`. |
 
 ### Smoke test against a running platform
 
