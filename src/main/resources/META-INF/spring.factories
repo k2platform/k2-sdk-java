@@ -1,0 +1,4 @@
+# Mode 1 — K2 as a high-precedence PropertySource (replaces application.yml).
+# Runs early, before beans, so @Value/@ConfigurationProperties resolve from K2.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.k2platform.sdk.spring.K2EnvironmentPostProcessor

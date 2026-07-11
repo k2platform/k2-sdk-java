@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.k2platform</groupId>
+    <artifactId>k2-sdk-java</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>K2 Java SDK</name>
+    <description>Client SDK for reading configuration from a self-hosted K2 platform.</description>
+    <url>https://github.com/k2platform/k2-sdk-java</url>
+    <inceptionYear>2026</inceptionYear>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <organization>
+        <name>KeyKosh</name>
+        <url>https://github.com/k2platform</url>
+    </organization>
+
+    <developers>
+        <developer>
+            <id>keykosh</id>
+            <name>KeyKosh</name>
+            <url>https://github.com/k2platform</url>
+            <organization>KeyKosh</organization>
+            <organizationUrl>https://github.com/k2platform</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/k2platform/k2-sdk-java.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/keykosh/k2-sdk-java.git</developerConnection>
+        <url>https://github.com/k2platform/k2-sdk-java</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/k2platform/k2-sdk-java/issues</url>
+    </issueManagement>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <jackson.version>2.17.2</jackson.version>
+        <spring.boot.version>3.3.5</spring.boot.version>
+        <awssdk.version>2.28.11</awssdk.version>
+    </properties>
+
+    <dependencies>
+        <!-- JSON (the only mandatory runtime dependency; HTTP uses the JDK's java.net.http) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!--
+          Spring support is OPTIONAL. Plain-JVM consumers get only the K2Client core and never
+          resolve these transitively; Spring Boot apps already have them on the classpath, which is
+          what activates the PropertySource (Mode 1) + the @K2Config proxy (Mode 2). Same one jar.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+            <version>${spring.boot.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+            <version>${spring.boot.version}</version>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+          AWS KMS is OPTIONAL — pulled in only by apps that use the K2_TOKEN_ENC KMS-envelope
+          credential (a cloud-only affordance; see SDK_AUTH_AND_OFFLINE_DESIGN.md §1b/§1c). Non-AWS
+          and eval consumers never reference KmsTokenDecryptor and don't resolve it transitively.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>kms</artifactId>
+            <version>${awssdk.version}</version>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+          AWS auth + regions are OPTIONAL — pulled in only by apps using the STS workload-identity
+          credential (AwsStsIdentitySigner, §1a). They provide SigV4 signing (Aws4Signer) + the
+          ambient credential/region provider chains. Non-AWS consumers never reference the signer.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>auth</artifactId>
+            <version>${awssdk.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>regions</artifactId>
+            <version>${awssdk.version}</version>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Test (the optional deps above are on this module's test classpath) -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+            <!-- Runnable demo: mvn -q exec:java -Dexec.mainClass=com.k2platform.sdk.K2SdkDemo -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.3.0</version>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!--
+          Publish/signing profile. Kept out of the default build so ordinary `mvn install` stays
+          fast and unsigned; activate with `-Prelease` to attach the sources + javadoc jars, GPG-sign
+          all artifacts, and deploy to the Sonatype Central Portal. See RELEASING.md.
+        -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <!-- Attach the -sources.jar (required by Maven Central). -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Attach the -javadoc.jar (required by Maven Central). -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.7.0</version>
+                        <configuration>
+                            <source>21</source>
+                            <!-- Don't fail the build on missing @param/@return tags; still report real errors. -->
+                            <doclint>all,-missing</doclint>
+                            <quiet>true</quiet>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- GPG-sign every attached artifact (required by Maven Central). -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.4</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Upload to the Sonatype Central Portal (https://central.sonatype.com). -->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <!-- Matches the <server><id> in settings.xml (Central Portal token). -->
+                            <publishingServerId>central</publishingServerId>
+                            <!-- Leave staged for a manual "Publish" click; set to true to auto-release. -->
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>validated</waitUntil>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>
